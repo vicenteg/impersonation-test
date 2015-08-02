@@ -10,6 +10,7 @@
 
 . assert.bash
 
+WAREHOUSE_PATH='/mapr/*/user/hive/warehouse'
 JDBC_URL='jdbc:hive2://localhost:10000/default;saslQop=auth-conf;ssl=true'
 CREATE_QUERYFILE="create_query.sql"
 CREATE_QUERYFILE2="create_query2.sql"
@@ -25,15 +26,21 @@ PASS='mapr'
 echo -n "create table as superuser: should exit 0 (success): "
 output=$(/opt/mapr/hive/hive-1.0/bin/beeline -u "$JDBC_URL" -n $SUPERUSER -p $SUPERUSER_PASS -f $CREATE_QUERYFILE 2>&1 ) ; assert "$? -eq 0" && echo ok
 
+echo -n "check that $SUPERUSER owns the table file: "
+owner=$(stat -c "%U" $WAREHOUSE_PATH/pokes); assert "$owner == $SUPERUSER" && echo ok || exit
+
 echo -n "create table as regular user: should exit 0 (success): "
-output=$(/opt/mapr/hive/hive-1.0/bin/beeline -u "$JDBC_URL" -n $USER -p $PASS -f $CREATE_QUERYFILE2 2>&1 ) ; assert "$? -eq 0" && echo ok
+output=$(/opt/mapr/hive/hive-1.0/bin/beeline -u "$JDBC_URL" -n $USER -p $PASS -f $CREATE_QUERYFILE2 2>&1 ) ; assert "$? -eq 0" && echo ok || exit
+
+echo -n "check that $USER owns the table file: "
+owner=$(stat -c "%U" $WAREHOUSE_PATH/pokes2); assert "$owner == $USER" && echo ok || exit
 
 echo -n "drop table created by regular user as regular user. Should exit 0 (success): "
-output=$(/opt/mapr/hive/hive-1.0/bin/beeline -u "$JDBC_URL" -n $USER -p $PASS -f $DROP_QUERYFILE2 2>&1 )  ; assert "$? -eq 0" && echo ok
+output=$(/opt/mapr/hive/hive-1.0/bin/beeline -u "$JDBC_URL" -n $USER -p $PASS -f $DROP_QUERYFILE2 2>&1 )  ; assert "$? -eq 0" && echo ok || exit
 
 echo -n "drop table created by superuser as regular user. Should exit 2 (fail): "
-output=$(/opt/mapr/hive/hive-1.0/bin/beeline -u "$JDBC_URL" -n $USER -p $PASS -f $DROP_QUERYFILE 2>&1 )  ; assert "$? -eq 2" && echo ok
+output=$(/opt/mapr/hive/hive-1.0/bin/beeline -u "$JDBC_URL" -n $USER -p $PASS -f $DROP_QUERYFILE 2>&1 )  ; assert "$? -eq 2" && echo ok || exit
 
 echo -n "drop table create by superuser as superuser. Should exit 0 (success): "
-output=$(/opt/mapr/hive/hive-1.0/bin/beeline -u "$JDBC_URL" -n $SUPERUSER -p $SUPERUSER_PASS -f $DROP_QUERYFILE 2>&1 ) ; assert "$? -eq 0" && echo ok
+output=$(/opt/mapr/hive/hive-1.0/bin/beeline -u "$JDBC_URL" -n $SUPERUSER -p $SUPERUSER_PASS -f $DROP_QUERYFILE 2>&1 ) ; assert "$? -eq 0" && echo ok || exit
 
